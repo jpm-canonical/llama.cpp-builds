@@ -11,14 +11,22 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         jobs:
+          - runs-on: ubuntu-24.04
+            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF -DGGML_F16C=OFF -DGGML_FMA=OFF -DGGML_BMI2=OFF -DGGML_AVX2=OFF"
+            name: amd64-avx-sse4
           - runs-on: ubuntu-24.04
             cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF"
             name: amd64-avx2
           - runs-on: ubuntu-24.04
             cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF -DGGML_AVX512=ON"
             name: amd64-avx512
+          - runs-on: ubuntu-24.04
+            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF"
+            name: amd64-avx2
+            apt-dependencies: "nvidia-cuda-toolkit"
           - runs-on: ubuntu-24.04-arm
             cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF"
             name: arm-neon
@@ -37,7 +45,7 @@ jobs:
         id: depends
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential
+          sudo apt-get install build-essential ${{ matrix.jobs.apt-dependencies }}
 
       - name: Build
         id: cmake_build
@@ -49,13 +57,13 @@ jobs:
         id: pack_artifacts
         run: |
           cp LICENSE ./build/bin/
-          zip -r llamacpp-${{ inputs.tag }}-${{ matrix.name }}.zip ./build/bin/*
+          zip -r llamacpp-${{ inputs.tag }}-${{ matrix.jobs.name }}.zip ./build/bin/*
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          path: llamacpp-${{ inputs.tag }}-${{ matrix.name }}.zip
-          name: llamacpp-${{ inputs.tag }}-${{ matrix.name }}
+          path: llamacpp-${{ inputs.tag }}-${{ matrix.jobs.name }}.zip
+          name: llamacpp-${{ inputs.tag }}-${{ matrix.jobs.name }}
 
 
   release:
