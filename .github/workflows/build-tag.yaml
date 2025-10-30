@@ -9,9 +9,21 @@ on:
         type: string
 
 jobs:
-  amd64-avx2:
-    runs-on: ubuntu-24.04
+  build:
+    strategy:
+      matrix:
+        jobs:
+          - runs-on: ubuntu-24.04
+            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF"
+            name: amd64-avx2
+          - runs-on: ubuntu-24.04
+            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF -DGGML_AVX512=ON"
+            name: amd64-avx512
+          - runs-on: ubuntu-24.04-arm
+            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF"
+            name: arm-neon
 
+    runs-on: ${{ matrix.jobs.runs-on }}
     steps:
       - name: Clone
         id: checkout
@@ -30,61 +42,20 @@ jobs:
       - name: Build
         id: cmake_build
         run: |
-          cmake -B build \
-            -DLLAMA_CURL=OFF \
-            -DGGML_NATIVE=OFF
+          cmake -B build ${{ matrix.jobs.cmake-flags }}
           cmake --build build --config Release -j $(nproc)
 
       - name: Pack artifacts
         id: pack_artifacts
         run: |
           cp LICENSE ./build/bin/
-          zip -r llamacpp-${{ inputs.tag }}-${{ github.job }}.zip ./build/bin/*
+          zip -r llamacpp-${{ inputs.tag }}-${{ matrix.name }}.zip ./build/bin/*
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          path: llamacpp-${{ inputs.tag }}-${{ github.job }}.zip
-          name: llama-${{ github.job }}.zip
-
-  amd64-avx512:
-    runs-on: ubuntu-24.04
-
-    steps:
-      - name: Clone
-        id: checkout
-        uses: actions/checkout@v5
-        with:
-          repository: ggml-org/llama.cpp
-          ref: ${{ inputs.tag }}
-          fetch-depth: 0
-
-      - name: Dependencies
-        id: depends
-        run: |
-          sudo apt-get update
-          sudo apt-get install build-essential
-
-      - name: Build
-        id: cmake_build
-        run: |
-          cmake -B build \
-            -DLLAMA_CURL=OFF \
-            -DGGML_NATIVE=OFF \
-            -DGGML_AVX512=ON
-          cmake --build build --config Release -j $(nproc)
-
-      - name: Pack artifacts
-        id: pack_artifacts
-        run: |
-          cp LICENSE ./build/bin/
-          zip -r llamacpp-${{ inputs.tag }}-${{ github.job }}.zip ./build/bin/*
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          path: llamacpp-${{ inputs.tag }}-${{ github.job }}.zip
-          name: llama-${{ github.job }}.zip
+          path: llamacpp-${{ inputs.tag }}-${{ matrix.name }}.zip
+          name: llamacpp-${{ inputs.tag }}-${{ matrix.name }}
 
 
   release:
@@ -96,8 +67,7 @@ jobs:
     runs-on: ubuntu-latest
 
     needs:
-      - amd64-avx2
-      - amd64-avx512
+      - build
 
     steps:
       - name: Download artifacts
@@ -111,7 +81,6 @@ jobs:
         id: move_artifacts
         run: |
           mkdir -p release
-
           echo "Moving zip artifacts into release"
           mv -v artifact/*.zip release
 
@@ -122,6 +91,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           release_name: ${{ inputs.tag }}
+          tag_name: ${{ inputs.tag }}
 
       - name: Upload artifacts to release
         id: upload_release
