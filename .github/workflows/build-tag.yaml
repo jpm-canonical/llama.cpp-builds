@@ -10,31 +10,33 @@ on:
 
 jobs:
   build:
+    env:
+      COMMON_CMAKE_VARS: "-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DGGML_NATIVE=OFF"
+
     strategy:
       fail-fast: false
       matrix:
         jobs:
           - name: amd64-avx-sse4
             runs-on: ubuntu-24.04
-            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF -DGGML_F16C=OFF -DGGML_FMA=OFF -DGGML_BMI2=OFF -DGGML_AVX2=OFF"
+            additional-cmake-vars: "-DGGML_F16C=OFF -DGGML_FMA=OFF -DGGML_BMI2=OFF -DGGML_AVX2=OFF"
 
           - name: amd64-avx2
             runs-on: ubuntu-24.04
-            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF"
+            # additional-cmake-vars: ""
 
           - name: amd64-avx512
             runs-on: ubuntu-24.04
-            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF -DGGML_AVX512=ON"
+            additional-cmake-vars: "-DGGML_AVX512=ON"
 
           - name: amd64-cuda
             runs-on: ubuntu-24.04
-            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=all-major"
+            additional-cmake-vars: "-DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=all-major"
             apt-dependencies: "nvidia-cuda-toolkit"
 
           - name: arm-neon
             runs-on: ubuntu-24.04-arm
-            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF"
-
+            # additional-cmake-vars: ""
 
     runs-on: ${{ matrix.jobs.runs-on }}
     steps:
@@ -55,7 +57,7 @@ jobs:
       - name: Build
         id: cmake_build
         run: |
-          cmake -B build ${{ matrix.jobs.cmake-flags }}
+          cmake -B build ${{ env.COMMON_CMAKE_VARS }} ${{ matrix.jobs.additional-cmake-vars }}
           cmake --build build --config Release -j $(nproc)
 
       - name: Pack artifacts
