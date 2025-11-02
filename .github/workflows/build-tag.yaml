@@ -1,4 +1,4 @@
-name: Build tag
+name: Build
 
 on:
   release:
@@ -10,7 +10,7 @@ jobs:
       contents: write # for uploading release assets
     
     env:
-      COMMON_CMAKE_VARS: "-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF -DGGML_NATIVE=OFF"
+      COMMON_CMAKE_FLAGS: "-D BUILD_SHARED_LIBS=OFF -D LLAMA_CURL=OFF -D GGML_NATIVE=OFF"
 
     strategy:
       fail-fast: false
@@ -18,49 +18,45 @@ jobs:
         jobs:
           - name: amd64-avx-sse4
             runs-on: ubuntu-24.04
-            additional-cmake-vars: "-DGGML_F16C=OFF -DGGML_FMA=OFF -DGGML_BMI2=OFF -DGGML_AVX2=OFF"
+            additional-cmake-flags: "-D GGML_F16C=OFF -D GGML_FMA=OFF -D GGML_BMI2=OFF -D GGML_AVX2=OFF"
 
           - name: amd64-avx2
             runs-on: ubuntu-24.04
-            # additional-cmake-vars: ""
+            # additional-cmake-flags: ""
 
           - name: amd64-avx512
             runs-on: ubuntu-24.04
-            additional-cmake-vars: "-DGGML_AVX512=ON"
+            additional-cmake-flags: "-DGGML_AVX512=ON"
 
           - name: amd64-cuda
             runs-on: ubuntu-24.04
-            additional-cmake-vars: "-DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=all-major"
+            additional-cmake-flags: "-D GGML_CUDA=ON -D CMAKE_CUDA_ARCHITECTURES=all-major"
             apt-dependencies: "nvidia-cuda-toolkit"
 
           - name: arm-neon
             runs-on: ubuntu-24.04-arm
-            # additional-cmake-vars: ""
+            # additional-cmake-flags: ""
 
     runs-on: ${{ matrix.jobs.runs-on }}
     steps:
       - name: Clone
-        id: checkout
         uses: actions/checkout@v5
         with:
           repository: ggml-org/llama.cpp
           ref: ${{ github.event.release.tag_name }}
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Dependencies
-        id: depends
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ${{ matrix.jobs.apt-dependencies }}
 
       - name: Build
-        id: cmake_build
         run: |
-          cmake -B build ${{ env.COMMON_CMAKE_VARS }} ${{ matrix.jobs.additional-cmake-vars }}
+          cmake -B build ${{ env.COMMON_CMAKE_FLAGS }} ${{ matrix.jobs.additional-cmake-flags }}
           cmake --build build --config Release -j $(nproc)
 
       - name: Pack artifacts
-        id: pack_artifacts
         run: |
           cp LICENSE ./build/bin/
           zip -r llamacpp-${{ github.event.release.tag_name }}-${{ matrix.jobs.name }}.zip ./build/bin/*
