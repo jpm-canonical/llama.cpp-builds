@@ -45,7 +45,6 @@ jobs:
         with:
           repository: ggml-org/llama.cpp
           ref: ${{ github.event.release.tag_name }}
-          fetch-depth: 1
 
       - name: Dependencies
         run: |
