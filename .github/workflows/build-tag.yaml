@@ -1,129 +1,77 @@
-name: Build tag
+name: Build
 
 on:
-  workflow_dispatch: # allows manual triggering
-    inputs:
-      tag:
-        description: 'Git tag of llama.cpp to build'
-        required: true
-        type: string
+  release:
+    types: [published]
 
 jobs:
   build:
+    permissions:
+      contents: write # for uploading release assets
+    
+    env:
+      COMMON_CMAKE_FLAGS: "-D LLAMA_CURL=OFF -D GGML_NATIVE=OFF"
+      ARTIFACT: "llamacpp-${{ github.event.release.tag_name }}-${{ matrix.jobs.name }}.tar.gz"
+
     strategy:
       fail-fast: false
       matrix:
         jobs:
           - name: amd64-avx-sse4
             runs-on: ubuntu-24.04
-            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF -DGGML_F16C=OFF -DGGML_FMA=OFF -DGGML_BMI2=OFF -DGGML_AVX2=OFF"
+            additional-cmake-flags: "-D GGML_F16C=OFF -D GGML_FMA=OFF -D GGML_BMI2=OFF -D GGML_AVX2=OFF"
 
           - name: amd64-avx2
             runs-on: ubuntu-24.04
-            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF"
+            # additional-cmake-flags: ""
 
           - name: amd64-avx512
             runs-on: ubuntu-24.04
-            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF -DGGML_AVX512=ON"
+            additional-cmake-flags: "-D GGML_AVX512=ON"
 
           - name: amd64-cuda
             runs-on: ubuntu-24.04
-            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=all-major"
+            additional-cmake-flags: "-D GGML_CUDA=ON -D CMAKE_CUDA_ARCHITECTURES=all-major"
             apt-dependencies: "nvidia-cuda-toolkit"
 
           - name: arm-neon
             runs-on: ubuntu-24.04-arm
-            cmake-flags: "-DLLAMA_CURL=OFF -DGGML_NATIVE=OFF"
-
+            # additional-cmake-flags: ""
 
     runs-on: ${{ matrix.jobs.runs-on }}
     steps:
       - name: Clone
-        id: checkout
         uses: actions/checkout@v5
         with:
           repository: ggml-org/llama.cpp
-          ref: ${{ inputs.tag }}
-          fetch-depth: 0
+          ref: ${{ github.event.release.tag_name }}
 
       - name: Dependencies
-        id: depends
         run: |
           sudo apt-get update
           sudo apt-get install build-essential ${{ matrix.jobs.apt-dependencies }}
 
       - name: Build
-        id: cmake_build
         run: |
-          cmake -B build ${{ matrix.jobs.cmake-flags }}
+          cmake -B build ${{ env.COMMON_CMAKE_FLAGS }} ${{ matrix.jobs.additional-cmake-flags }}
           cmake --build build --config Release -j $(nproc)
 
       - name: Pack artifacts
-        id: pack_artifacts
         run: |
-          cp LICENSE ./build/bin/
-          zip -r llamacpp-${{ inputs.tag }}-${{ matrix.jobs.name }}.zip ./build/bin/*
+          # Prepare archive directory:
+          # - bin for executables
+          # - lib for shared libraries
+          # - licenses directory
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+          mkdir -p archive/lib
+          mv build/bin/*.so archive/lib/
+          mv build/bin archive/
+          cp -r licenses archive/
+          cp LICENSE archive/licenses/
+
+          tar -C archive -zcvf $ARTIFACT .
+
+      - name: Upload artifact to release
+        uses: softprops/action-gh-release@v2
         with:
-          path: llamacpp-${{ inputs.tag }}-${{ matrix.jobs.name }}.zip
-          name: llamacpp-${{ inputs.tag }}-${{ matrix.jobs.name }}
-
-
-  release:
-    # Fine-grained permission for creating release
-    # https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token
-    permissions:
-      contents: write # for creating release
-
-    runs-on: ubuntu-latest
-
-    needs:
-      - build
-
-    steps:
-      - name: Download artifacts
-        id: download-artifact
-        uses: actions/download-artifact@v4
-        with:
-          path: ./artifact
-          merge-multiple: true
-
-      - name: Gather artifacts for release
-        id: move_artifacts
-        run: |
-          mkdir -p release
-          echo "Moving zip artifacts into release"
-          mv -v artifact/*.zip release
-
-      - name: Create release
-        id: create_release
-        uses: ggml-org/action-create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          release_name: ${{ inputs.tag }}
-          tag_name: ${{ inputs.tag }}
-
-      - name: Upload artifacts to release
-        id: upload_release
-        uses: actions/github-script@v3
-        with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            const path = require('path');
-            const fs = require('fs');
-            const release_id = '${{ steps.create_release.outputs.id }}';
-            for (let file of await fs.readdirSync('./release')) {
-              if (path.extname(file) === '.zip') {
-                console.log('uploadReleaseAsset', file);
-                await github.repos.uploadReleaseAsset({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  release_id: release_id,
-                  name: file,
-                  data: await fs.readFileSync(`./release/${file}`)
-                });
-              }
-            }
+          files: ${{ env.ARTIFACT }}
