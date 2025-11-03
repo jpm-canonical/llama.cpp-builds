@@ -61,17 +61,15 @@ jobs:
           # Prepare archive directory:
           # - bin for executables
           # - lib for shared libraries
-          # - LICENSE file
           # - licenses directory
 
           mkdir -p archive/lib
           mv build/bin/*.so archive/lib/
           mv build/bin archive/
-          cp LICENSE archive/
           cp -r licenses archive/
+          cp LICENSE archive/licenses/
 
-          cd archive
-          zip -r ../llamacpp-${{ github.event.release.tag_name }}-${{ matrix.jobs.name }}.zip *
+          tar -C archive -zcvf llamacpp-${{ github.event.release.tag_name }}-${{ matrix.jobs.name }}.tar.gz .
 
       - name: Upload artifact to release
         uses: softprops/action-gh-release@v2
