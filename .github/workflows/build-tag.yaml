@@ -2,7 +2,7 @@ name: Build
 
 on:
   release:
-    types: [created]
+    types: [published]
 
 jobs:
   build:
@@ -11,6 +11,7 @@ jobs:
     
     env:
       COMMON_CMAKE_FLAGS: "-D LLAMA_CURL=OFF -D GGML_NATIVE=OFF"
+      ARTIFACT: "llamacpp-${{ github.event.release.tag_name }}-${{ matrix.jobs.name }}.tar.gz"
 
     strategy:
       fail-fast: false
@@ -69,9 +70,9 @@ jobs:
           cp -r licenses archive/
           cp LICENSE archive/licenses/
 
-          tar -C archive -zcvf llamacpp-${{ github.event.release.tag_name }}-${{ matrix.jobs.name }}.tar.gz .
+          tar -C archive -zcvf $ARTIFACT .
 
       - name: Upload artifact to release
         uses: softprops/action-gh-release@v2
         with:
-          files: llamacpp-${{ github.event.release.tag_name }}-${{ matrix.jobs.name }}.zip
+          files: ${{ env.ARTIFACT }}
