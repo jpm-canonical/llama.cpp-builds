@@ -55,13 +55,13 @@ jobs:
           # - lib for shared libraries
           # - licenses directory
 
-          mkdir -p archive/
+          mkdir -p archive/lib
           mv build/bin/*.so* archive/lib/
           mv build/bin archive/
           cp -r licenses archive/
           cp LICENSE archive/licenses/
 
-          copy="cp --no-dereference -v {} archive/bin/ "
+          copy="cp --no-dereference -v {} archive/lib/ "
           find /usr -name "libcuba.so.*" -exec $copy \;
           find /usr -name "libcudart.so.*" -exec $copy \;
           find /usr -name "libcublas.so.*" -exec $copy \;
