@@ -34,10 +34,10 @@ jobs:
           #   runs-on: ubuntu-24.04
           #   additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=ON  -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
 
-          - name: amd64v3-cuda
+          - name: amd64v3-cuda12
             runs-on: ubuntu-24.04
             additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF -D GGML_CUDA=ON -D CMAKE_CUDA_ARCHITECTURES=all-major"
-            apt-dependencies: "libcudart12 libcublas12"
+            apt-dependencies: "nvidia-cuda-toolkit libcudart12 libcublas12"
 
           # - name: arm64
           #   runs-on: ubuntu-24.04-arm
