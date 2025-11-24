@@ -33,16 +33,15 @@ jobs:
 
       - name: Dependencies
         run: |
-          sudo apt-get -q update
-
-          if apt-cache policy  nvidia-cuda-toolkit | grep "Candidate: 12."; then
-            echo "Installing CUDA 12 packages"
-          else
+          sudo apt-get -qq update
+          
+          # We need CUDA 12 for this build
+          if ! apt-cache policy  nvidia-cuda-toolkit | grep "Candidate: 12."; then
             echo "CUDA 12 packages not found in apt cache!"
             exit 1
           fi
           
-          sudo apt-get install -q build-essential nvidia-cuda-toolkit
+          sudo apt-get -qq install build-essential nvidia-cuda-toolkit
 
       - name: Build
         run: |
@@ -56,14 +55,17 @@ jobs:
           # - lib for shared libraries
           # - licenses directory
 
-          mkdir -p archive/lib
-          mv build/bin/*.so archive/lib/
+          mkdir -p archive/
+          mv build/bin/*.so* archive/lib/
           mv build/bin archive/
           cp -r licenses archive/
           cp LICENSE archive/licenses/
 
-          find /usr -iname "libcudart.so.*" -exec cp -v {} archive/lib/ \;
-          find /usr -iname "libcublas.so.*" -exec cp -v {} archive/lib/ \;
+          copy="cp --no-dereference -v {} archive/bin/ "
+          find /usr -name "libcuba.so.*" -exec $copy \;
+          find /usr -name "libcudart.so.*" -exec $copy \;
+          find /usr -name "libcublas.so.*" -exec $copy \;
+          find /usr -name "libcublasLt.so.*" -exec $copy \;
 
           tar -C archive -zcvf $ARTIFACT .
 
