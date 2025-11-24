@@ -58,8 +58,8 @@ jobs:
 
       - name: Build
         run: |
-          #cmake -B build ${{ env.COMMON_CMAKE_FLAGS }} ${{ matrix.jobs.additional-cmake-flags }}
-          #cmake --build build --config Release -j $(nproc)
+          cmake -B build ${{ env.COMMON_CMAKE_FLAGS }} ${{ matrix.jobs.additional-cmake-flags }}
+          cmake --build build --config Release -j $(nproc)
 
       - name: Pack artifacts
         run: |
@@ -68,16 +68,16 @@ jobs:
           # - lib for shared libraries
           # - licenses directory
 
-          #mkdir -p archive/lib
-          #mv build/bin/*.so archive/lib/
-          #mv build/bin archive/
-          #cp -r licenses archive/
-          #cp LICENSE archive/licenses/
+          mkdir -p archive/lib
+          mv build/bin/*.so archive/lib/
+          mv build/bin archive/
+          cp -r licenses archive/
+          cp LICENSE archive/licenses/
 
-          find /usr -iname "libcudart.so.*" -exec file {} \;
-          find /usr -iname "libcublas.so.*" -exec file {} \;
+          find /usr -iname "libcudart.so.*" -exec cp -v {} archive/lib/ \;
+          find /usr -iname "libcublas.so.*" -exec cp -v {} archive/lib/ \;
 
-          #tar -C archive -zcvf $ARTIFACT .
+          tar -C archive -zcvf $ARTIFACT .
 
       - name: Upload artifact to release
         uses: softprops/action-gh-release@v2
