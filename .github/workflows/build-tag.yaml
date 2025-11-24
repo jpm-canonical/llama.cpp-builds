@@ -25,18 +25,18 @@ jobs:
 
     runs-on: ${{ matrix.jobs.runs-on }}
     steps:
-      - name: Clone
+      - name: Clone llama.cpp
         uses: actions/checkout@v5
         with:
           repository: ggml-org/llama.cpp
           ref: ${{ env.SOURCE_TAG }}
 
-      - name: Dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get -qq update
           
-          # We need CUDA 12 for this build
-          if ! apt-cache policy  nvidia-cuda-toolkit | grep "Candidate: 12."; then
+          echo "We need CUDA 12 for this build:"
+          if ! apt-cache policy nvidia-cuda-toolkit | grep "Candidate: 12."; then
             echo "CUDA 12 packages not found in apt cache!"
             exit 1
           fi
