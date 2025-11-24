@@ -18,30 +18,30 @@ jobs:
       fail-fast: false
       matrix:
         jobs:
-          - name: amd64v1
-            runs-on: ubuntu-24.04
-            additional-cmake-flags: "-D GGML_SSE42=OFF -D GGML_AVX=OFF -D GGML_AVX_VNNI=OFF -D GGML_AVX2=OFF -D GGML_BMI2=OFF -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=OFF -D GGML_F16C=OFF -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
+          # - name: amd64v1
+          #   runs-on: ubuntu-24.04
+          #   additional-cmake-flags: "-D GGML_SSE42=OFF -D GGML_AVX=OFF -D GGML_AVX_VNNI=OFF -D GGML_AVX2=OFF -D GGML_BMI2=OFF -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=OFF -D GGML_F16C=OFF -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
 
-          - name: amd64v2
-            runs-on: ubuntu-24.04
-            additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=OFF -D GGML_AVX_VNNI=OFF -D GGML_AVX2=OFF -D GGML_BMI2=OFF -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=OFF -D GGML_F16C=OFF -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
+          # - name: amd64v2
+          #   runs-on: ubuntu-24.04
+          #   additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=OFF -D GGML_AVX_VNNI=OFF -D GGML_AVX2=OFF -D GGML_BMI2=OFF -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=OFF -D GGML_F16C=OFF -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
 
-          - name: amd64v3
-            runs-on: ubuntu-24.04
-            additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
+          # - name: amd64v3
+          #   runs-on: ubuntu-24.04
+          #   additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
 
-          - name: amd64v4
-            runs-on: ubuntu-24.04
-            additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=ON  -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
+          # - name: amd64v4
+          #   runs-on: ubuntu-24.04
+          #   additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=ON  -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
 
           - name: amd64v3-cuda
             runs-on: ubuntu-24.04
             additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF -D GGML_CUDA=ON -D CMAKE_CUDA_ARCHITECTURES=all-major"
-            apt-dependencies: "nvidia-cuda-toolkit"
+            apt-dependencies: "libcudart12 libcublas12"
 
-          - name: arm64
-            runs-on: ubuntu-24.04-arm
-            # additional-cmake-flags: ""
+          # - name: arm64
+          #   runs-on: ubuntu-24.04-arm
+          #   # additional-cmake-flags: ""
 
     runs-on: ${{ matrix.jobs.runs-on }}
     steps:
@@ -58,8 +58,8 @@ jobs:
 
       - name: Build
         run: |
-          cmake -B build ${{ env.COMMON_CMAKE_FLAGS }} ${{ matrix.jobs.additional-cmake-flags }}
-          cmake --build build --config Release -j $(nproc)
+          #cmake -B build ${{ env.COMMON_CMAKE_FLAGS }} ${{ matrix.jobs.additional-cmake-flags }}
+          #cmake --build build --config Release -j $(nproc)
 
       - name: Pack artifacts
         run: |
@@ -68,13 +68,16 @@ jobs:
           # - lib for shared libraries
           # - licenses directory
 
-          mkdir -p archive/lib
-          mv build/bin/*.so archive/lib/
-          mv build/bin archive/
-          cp -r licenses archive/
-          cp LICENSE archive/licenses/
+          #mkdir -p archive/lib
+          #mv build/bin/*.so archive/lib/
+          #mv build/bin archive/
+          #cp -r licenses archive/
+          #cp LICENSE archive/licenses/
 
-          tar -C archive -zcvf $ARTIFACT .
+          find /usr -iname "libcudart.so.*" -exec file {} \;
+          find /usr -iname "libcublas.so.*" -exec file {} \;
+
+          #tar -C archive -zcvf $ARTIFACT .
 
       - name: Upload artifact to release
         uses: softprops/action-gh-release@v2
