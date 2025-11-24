@@ -1,4 +1,4 @@
-name: Build
+name: Build llama.cpp with CUDA
 
 on:
   release:
@@ -10,7 +10,6 @@ jobs:
       contents: write # for uploading release assets
     
     env:
-      COMMON_CMAKE_FLAGS: "-D LLAMA_CURL=OFF -D GGML_NATIVE=OFF"
       SOURCE_TAG: ${{ github.event.release.tag_name }}
       ARTIFACT: "llamacpp-${{ matrix.jobs.name }}.tar.gz"
 
@@ -18,30 +17,11 @@ jobs:
       fail-fast: false
       matrix:
         jobs:
-          # - name: amd64v1
-          #   runs-on: ubuntu-24.04
-          #   additional-cmake-flags: "-D GGML_SSE42=OFF -D GGML_AVX=OFF -D GGML_AVX_VNNI=OFF -D GGML_AVX2=OFF -D GGML_BMI2=OFF -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=OFF -D GGML_F16C=OFF -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
-
-          # - name: amd64v2
-          #   runs-on: ubuntu-24.04
-          #   additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=OFF -D GGML_AVX_VNNI=OFF -D GGML_AVX2=OFF -D GGML_BMI2=OFF -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=OFF -D GGML_F16C=OFF -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
-
-          # - name: amd64v3
-          #   runs-on: ubuntu-24.04
-          #   additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
-
-          # - name: amd64v4
-          #   runs-on: ubuntu-24.04
-          #   additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=ON  -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
-
-          - name: amd64v3-cuda12
+          - name: amd64+cuda12
             runs-on: ubuntu-24.04
-            additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF -D GGML_CUDA=ON -D CMAKE_CUDA_ARCHITECTURES=all-major"
-            apt-dependencies: "nvidia-cuda-toolkit libcudart12 libcublas12"
 
-          # - name: arm64
+          # - name: arm64+cuda12
           #   runs-on: ubuntu-24.04-arm
-          #   # additional-cmake-flags: ""
 
     runs-on: ${{ matrix.jobs.runs-on }}
     steps:
@@ -53,12 +33,20 @@ jobs:
 
       - name: Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install build-essential ${{ matrix.jobs.apt-dependencies }}
+          sudo apt-get -q update
+
+          if apt-cache policy  nvidia-cuda-toolkit | grep "Candidate: 12."; then
+            echo "Installing CUDA 12 packages"
+          else
+            echo "CUDA 12 packages not found in apt cache!"
+            exit 1
+          fi
+          
+          sudo apt-get install -q build-essential nvidia-cuda-toolkit
 
       - name: Build
         run: |
-          cmake -B build ${{ env.COMMON_CMAKE_FLAGS }} ${{ matrix.jobs.additional-cmake-flags }}
+          cmake -B build -D LLAMA_CURL=OFF -D GGML_NATIVE=OFF -D GGML_CUDA=ON -D CMAKE_CUDA_ARCHITECTURES=all-major
           cmake --build build --config Release -j $(nproc)
 
       - name: Pack artifacts
