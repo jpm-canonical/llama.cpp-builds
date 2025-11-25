@@ -17,11 +17,11 @@ jobs:
       fail-fast: false
       matrix:
         jobs:
-          - name: amd64+cuda12
-            runs-on: ubuntu-24.04
+          # - name: amd64+cuda12
+          #   runs-on: ubuntu-24.04
 
-          # - name: arm64+cuda12
-          #   runs-on: ubuntu-24.04-arm
+          - name: arm64+cuda12
+            runs-on: ubuntu-24.04-arm
 
     runs-on: ${{ matrix.jobs.runs-on }}
     steps:
@@ -62,7 +62,6 @@ jobs:
           cp LICENSE archive/licenses/
 
           copy="cp --no-dereference -v {} archive/lib/ "
-          find /usr -name "libcuba.so.*" -exec $copy \;
           find /usr -name "libcudart.so.*" -exec $copy \;
           find /usr -name "libcublas.so.*" -exec $copy \;
           find /usr -name "libcublasLt.so.*" -exec $copy \;
