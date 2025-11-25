@@ -17,11 +17,13 @@ jobs:
       fail-fast: false
       matrix:
         jobs:
-          # - name: amd64+cuda12
-          #   runs-on: ubuntu-24.04
+          - name: amd64+cuda12
+            runs-on: ubuntu-24.04
+            cuda-toolkit: true
 
           - name: arm64+cuda12
             runs-on: ubuntu-24.04-arm
+            cuda-toolkit: true
 
     runs-on: ${{ matrix.jobs.runs-on }}
     steps:
@@ -31,26 +33,25 @@ jobs:
           repository: ggml-org/llama.cpp
           ref: ${{ env.SOURCE_TAG }}
 
-      - name: Setup upterm session
-        uses: owenthereal/action-upterm@v1
-        with:
-          limit-access-to-actor: true 
-          limit-access-to-users: farshidtz
-
       - name: Install dependencies
         run: |
-          sudo apt-get -qq update
+          if [ "${{ matrix.jobs.cuda-toolkit }}" = "true" ]; then
+            # The repository is for x86_64 but the package is suitable for all architectures
+            wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
           
-          echo "We need CUDA 12 for this build:"
-          if ! apt-cache policy nvidia-cuda-toolkit | grep "Candidate: 12."; then
-            echo "CUDA 12 packages not found in apt cache!"
-            exit 1
+            sudo dpkg -i cuda-keyring_1.1-1_all.deb
+            sudo apt-get -qq update
+            sudo apt-get -qq install cuda-toolkit-12-9
+          else
+            sudo apt-get -qq update
           fi
           
-          sudo apt-get -qq install build-essential nvidia-cuda-toolkit
+          sudo apt-get -qq install build-essential
 
       - name: Build
         run: |
+          export CUDACXX=/usr/local/cuda/bin/nvcc
+          
           cmake -B build -D LLAMA_CURL=OFF -D GGML_NATIVE=OFF -D GGML_CUDA=ON -D CMAKE_CUDA_ARCHITECTURES=all-major
           cmake --build build --config Release -j $(nproc)
 
