@@ -92,7 +92,7 @@ jobs:
           # Configure and build llama.cpp
           common_flags="-D LLAMA_CURL=OFF -D GGML_NATIVE=OFF"
           artifacts_flags="-D LLAMA_BUILD_TESTS=OFF -D LLAMA_BUILD_EXAMPLES=OFF -D LLAMA_BUILD_TOOLS=ON -D LLAMA_BUILD_SERVER=ON"
-          cmake -B build -D $common_flags $artifacts_flags ${{ matrix.jobs.additional-cmake-flags }}
+          cmake -B build $common_flags $artifacts_flags ${{ matrix.jobs.additional-cmake-flags }}
           cmake --build build --config Release -j $(nproc)
 
       - name: Pack artifacts
