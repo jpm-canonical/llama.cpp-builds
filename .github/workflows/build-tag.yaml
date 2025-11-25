@@ -17,9 +17,9 @@ jobs:
       fail-fast: false
       matrix:
         jobs:
-          - name: amd64+cuda12
-            runs-on: ubuntu-24.04
-            cuda-toolkit: true
+          # - name: amd64+cuda12
+          #   runs-on: ubuntu-24.04
+          #   cuda-toolkit: true
 
           - name: arm64+cuda12
             runs-on: ubuntu-24.04-arm
@@ -35,9 +35,20 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # Install CUDA toolkit if required
           if [ "${{ matrix.jobs.cuda-toolkit }}" = "true" ]; then
-            # The repository is for x86_64 but the package is suitable for all architectures
-            wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+            case "$(dpkg --print-architecture)" in
+              amd64)
+                wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+                ;;
+              arm64)
+                wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/sbsa/cuda-keyring_1.1-1_all.deb
+                ;;
+              *)
+                echo "Unsupported architecture for CUDA Toolkit installation"
+                exit 1
+              ;;
+            esac
           
             sudo dpkg -i cuda-keyring_1.1-1_all.deb
             sudo apt-get -qq update
@@ -50,8 +61,10 @@ jobs:
 
       - name: Build
         run: |
+          # Set CUDA compiler for CUDA builds
           export CUDACXX=/usr/local/cuda/bin/nvcc
           
+          # Configure and build llama.cpp
           cmake -B build -D LLAMA_CURL=OFF -D GGML_NATIVE=OFF -D GGML_CUDA=ON -D CMAKE_CUDA_ARCHITECTURES=all-major
           cmake --build build --config Release -j $(nproc)
 
