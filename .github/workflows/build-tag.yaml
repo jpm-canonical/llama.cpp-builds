@@ -99,6 +99,10 @@ jobs:
 
       - name: Build
         run: |
+          # Set gcc-14 as the compiler
+          export CC=/usr/bin/gcc-14
+          export CXX=/usr/bin/g++-14
+          
           # Set CUDA compiler for CUDA builds
           export CUDACXX=/usr/local/cuda/bin/nvcc
           
