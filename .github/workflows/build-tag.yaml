@@ -10,7 +10,6 @@ jobs:
       contents: write # for uploading release assets
     
     env:
-      COMMON_CMAKE_FLAGS: "-D LLAMA_CURL=OFF -D GGML_NATIVE=OFF"
       SOURCE_TAG: ${{ github.event.release.tag_name }}
       ARTIFACT: "llamacpp-${{ matrix.jobs.name }}.tar.gz"
 
@@ -33,32 +32,67 @@ jobs:
           - name: amd64v4
             runs-on: ubuntu-24.04
             additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=ON  -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
-
-          - name: amd64v3-cuda
-            runs-on: ubuntu-24.04
-            additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF -D GGML_CUDA=ON -D CMAKE_CUDA_ARCHITECTURES=all-major"
-            apt-dependencies: "nvidia-cuda-toolkit"
-
+          
           - name: arm64
             runs-on: ubuntu-24.04-arm
             # additional-cmake-flags: ""
 
+          #
+          # Builds with CUDA backend
+          #
+          - name: amd64+cuda12
+            runs-on: ubuntu-24.04
+            additional-cmake-flags: "-D GGML_CUDA=ON -D CMAKE_CUDA_ARCHITECTURES=all-major"
+            cuda-toolkit: true
+
+          - name: arm64+cuda12
+            runs-on: ubuntu-24.04-arm
+            additional-cmake-flags: "-D GGML_CUDA=ON -D CMAKE_CUDA_ARCHITECTURES=all-major"
+            cuda-toolkit: true
+
     runs-on: ${{ matrix.jobs.runs-on }}
     steps:
-      - name: Clone
+      - name: Clone llama.cpp
         uses: actions/checkout@v5
         with:
           repository: ggml-org/llama.cpp
           ref: ${{ env.SOURCE_TAG }}
 
-      - name: Dependencies
+      - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install build-essential ${{ matrix.jobs.apt-dependencies }}
+          # Install CUDA toolkit if required
+          if [ "${{ matrix.jobs.cuda-toolkit }}" = "true" ]; then
+            case "$(dpkg --print-architecture)" in
+              amd64)
+                wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+                ;;
+              arm64)
+                wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/sbsa/cuda-keyring_1.1-1_all.deb
+                ;;
+              *)
+                echo "Unsupported architecture for CUDA Toolkit installation"
+                exit 1
+              ;;
+            esac
+          
+            sudo dpkg -i cuda-keyring_1.1-1_all.deb
+            sudo apt-get -qq update
+            sudo apt-get -qq install cuda-toolkit-12-9
+          else
+            sudo apt-get -qq update
+          fi
+          
+          sudo apt-get -qq install build-essential
 
       - name: Build
         run: |
-          cmake -B build ${{ env.COMMON_CMAKE_FLAGS }} ${{ matrix.jobs.additional-cmake-flags }}
+          # Set CUDA compiler for CUDA builds
+          export CUDACXX=/usr/local/cuda/bin/nvcc
+          
+          # Configure and build llama.cpp
+          common_flags="-D LLAMA_CURL=OFF -D GGML_NATIVE=OFF"
+          artifacts_flags="-D LLAMA_BUILD_TESTS=OFF -D LLAMA_BUILD_EXAMPLES=OFF -D LLAMA_BUILD_TOOLS=ON -D LLAMA_BUILD_SERVER=ON"
+          cmake -B build $common_flags $artifacts_flags ${{ matrix.jobs.additional-cmake-flags }}
           cmake --build build --config Release -j $(nproc)
 
       - name: Pack artifacts
@@ -67,12 +101,19 @@ jobs:
           # - bin for executables
           # - lib for shared libraries
           # - licenses directory
-
           mkdir -p archive/lib
-          mv build/bin/*.so archive/lib/
+          mv build/bin/*.so* archive/lib/
           mv build/bin archive/
           cp -r licenses archive/
           cp LICENSE archive/licenses/
+          
+          # Copy CUDA runtime libraries if built with CUDA
+          if [ "${{ matrix.jobs.cuda-toolkit }}" = "true" ]; then
+            copy="cp --no-dereference -v {} archive/lib/ "
+            find /usr -name "libcudart.so.*" -exec $copy \;
+            find /usr -name "libcublas.so.*" -exec $copy \;
+            find /usr -name "libcublasLt.so.*" -exec $copy \;
+          fi
 
           tar -C archive -zcvf $ARTIFACT .
 
