@@ -19,7 +19,7 @@ jobs:
         jobs:
           - name: amd64-cpu-all-variants
             runs-on: ubuntu-24.04
-            additional-cmake-flags: "-D GGML_CPU_ALL_VARIANTS=ON"
+            additional-cmake-flags: "-D GGML_BACKEND_DL=ON -D GGML_CPU_ALL_VARIANTS=ON"
 
           - name: amd64v1
             runs-on: ubuntu-24.04
@@ -39,7 +39,7 @@ jobs:
 
           - name: arm64-cpu-all-variants
             runs-on: ubuntu-24.04-arm
-            additional-cmake-flags: "-D GGML_CPU_ALL_VARIANTS=ON"
+            additional-cmake-flags: "-D GGML_BACKEND_DL=ON -D GGML_CPU_ALL_VARIANTS=ON"
           
           - name: arm64
             runs-on: ubuntu-24.04-arm
