@@ -91,6 +91,11 @@ jobs:
           fi
           
           sudo apt-get -qq install build-essential
+          
+          # Update to gcc 14 - see https://github.com/ggml-org/llama.cpp/issues/17403#issuecomment-3562034750
+          sudo apt-get -qq install gcc-14
+          sudo apt-get -qq install g++-14
+          sudo snap install cmake --classic
 
       - name: Build
         run: |
