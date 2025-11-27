@@ -17,6 +17,10 @@ jobs:
       fail-fast: false
       matrix:
         jobs:
+          - name: amd64-cpu-all-variants
+            runs-on: ubuntu-24.04
+            additional-cmake-flags: "-D GGML_BACKEND_DL=ON -D GGML_CPU_ALL_VARIANTS=ON"
+
           - name: amd64v1
             runs-on: ubuntu-24.04
             additional-cmake-flags: "-D GGML_SSE42=OFF -D GGML_AVX=OFF -D GGML_AVX_VNNI=OFF -D GGML_AVX2=OFF -D GGML_BMI2=OFF -D GGML_AVX512=OFF -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=OFF -D GGML_F16C=OFF -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
@@ -32,6 +36,10 @@ jobs:
           - name: amd64v4
             runs-on: ubuntu-24.04
             additional-cmake-flags: "-D GGML_SSE42=ON  -D GGML_AVX=ON  -D GGML_AVX_VNNI=OFF -D GGML_AVX2=ON  -D GGML_BMI2=ON  -D GGML_AVX512=ON  -D GGML_AVX512_VBMI=OFF -D GGML_AVX512_VNNI=OFF -D GGML_AVX512_BF16=OFF -D GGML_FMA=ON  -D GGML_F16C=ON  -D GGML_AMX_TILE=OFF -D GGML_AMX_INT8=OFF -D GGML_AMX_BF16=OFF"
+
+          - name: arm64-cpu-all-variants
+            runs-on: ubuntu-24.04-arm
+            additional-cmake-flags: "-D GGML_BACKEND_DL=ON -D GGML_CPU_ALL_VARIANTS=ON"
           
           - name: arm64
             runs-on: ubuntu-24.04-arm
@@ -83,9 +91,18 @@ jobs:
           fi
           
           sudo apt-get -qq install build-essential
+          
+          # Update to gcc 14 - see https://github.com/ggml-org/llama.cpp/issues/17403#issuecomment-3562034750
+          sudo apt-get -qq install gcc-14
+          sudo apt-get -qq install g++-14
+          sudo snap install cmake --classic
 
       - name: Build
         run: |
+          # Set gcc-14 as the compiler
+          export CC=/usr/bin/gcc-14
+          export CXX=/usr/bin/g++-14
+          
           # Set CUDA compiler for CUDA builds
           export CUDACXX=/usr/local/cuda/bin/nvcc
           
@@ -106,6 +123,11 @@ jobs:
           mv build/bin archive/
           cp -r licenses archive/
           cp LICENSE archive/licenses/
+          
+          # Workaround: llama.cpp expects ggml shared objects in the same directory as executables
+          pushd archive/bin/
+          ln -s ../lib/libggml-cpu* ./
+          popd
           
           # Copy CUDA runtime libraries if built with CUDA
           if [ "${{ matrix.jobs.cuda-toolkit }}" = "true" ]; then
