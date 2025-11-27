@@ -124,6 +124,11 @@ jobs:
           cp -r licenses archive/
           cp LICENSE archive/licenses/
           
+          # Workaround: llama.cpp expects ggml shared objects in the same directory as executables
+          pushd archive/bin/
+          ln -s ../lib/libggml-cpu* ./
+          popd
+          
           # Copy CUDA runtime libraries if built with CUDA
           if [ "${{ matrix.jobs.cuda-toolkit }}" = "true" ]; then
             copy="cp --no-dereference -v {} archive/lib/ "
