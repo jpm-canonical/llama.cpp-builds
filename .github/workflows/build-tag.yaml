@@ -155,6 +155,7 @@ jobs:
           
           # Set CUDA compiler for CUDA builds
           export CUDACXX=/usr/local/cuda/bin/nvcc
+          
           # Set ROCm environment variables for ROCm builds
           echo "ROCM_DIR: $HOME/opt/rocm"
           export HIP_PATH="$HOME/opt/rocm"
@@ -193,8 +194,9 @@ jobs:
           mv build/bin archive/
           cp -r licenses archive/
           cp LICENSE archive/licenses/
+
+          # For ROCm builds, we need to include the ROCm runtime libraries in the artifact
           if [ "${{ matrix.jobs.rocm }}" = "true" ]; then
-            # For ROCm builds, we need to include the ROCm runtime libraries in the artifact
             cp -a "$HOME/opt/rocm/lib/"*.so* archive/bin/ 2>/dev/null || true
             cp -a "$HOME/opt/rocm/lib64/"*.so* archive/bin/ 2>/dev/null || true
             cp -a "$HOME/opt/rocm/lib/llvm/lib/"*.so* archive/bin/ 2>/dev/null || true
@@ -214,13 +216,6 @@ jobs:
                 cd - > /dev/null
             done
           fi
-          # Workaround: llama.cpp expects ggml shared objects in the same directory as executables
-          # See issue: https://github.com/ggml-org/llama.cpp/issues/17491
-          pushd archive/bin/
-          ln -s ../lib/libggml-cpu* ./
-          ln -s ../lib/libggml-cuda* ./
-          ln -s ../lib/libggml-hip* ./
-          popd
           
           # Copy CUDA runtime libraries if built with CUDA
           if [ "${{ matrix.jobs.cuda-toolkit }}" = "true" ]; then
@@ -229,6 +224,14 @@ jobs:
             find /usr -name "libcublas.so.*" -exec $copy \;
             find /usr -name "libcublasLt.so.*" -exec $copy \;
           fi
+
+          # Workaround: llama.cpp expects ggml shared objects in the same directory as executables
+          # See issue: https://github.com/ggml-org/llama.cpp/issues/17491
+          pushd archive/bin/
+          ln -s ../lib/libggml-cpu* ./
+          ln -s ../lib/libggml-cuda* ./
+          ln -s ../lib/libggml-hip* ./ # For ROCm
+          popd
 
           tar -C archive -zcvf $ARTIFACT .
 
