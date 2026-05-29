@@ -217,14 +217,6 @@ jobs:
             done
           fi
           
-          # Workaround: llama.cpp expects ggml shared objects in the same directory as executables
-          # See issue: https://github.com/ggml-org/llama.cpp/issues/17491
-          pushd archive/bin/
-          ln -s ../lib/libggml-cpu* ./
-          ln -s ../lib/libggml-cuda* ./
-          ln -s ../lib/libggml-hip* ./ # For ROCm
-          popd
-          
           # Copy CUDA runtime libraries if built with CUDA
           if [ "${{ matrix.jobs.cuda-toolkit }}" = "true" ]; then
             copy="cp --no-dereference -v {} archive/lib/ "
@@ -232,6 +224,14 @@ jobs:
             find /usr -name "libcublas.so.*" -exec $copy \;
             find /usr -name "libcublasLt.so.*" -exec $copy \;
           fi
+
+          # Workaround: llama.cpp expects ggml shared objects in the same directory as executables
+          # See issue: https://github.com/ggml-org/llama.cpp/issues/17491
+          pushd archive/bin/
+          ln -s ../lib/libggml-cpu* ./
+          ln -s ../lib/libggml-cuda* ./
+          ln -s ../lib/libggml-hip* ./ # For ROCm
+          popd
 
           tar -C archive -zcvf $ARTIFACT .
 
