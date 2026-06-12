@@ -111,7 +111,7 @@ jobs:
             sudo apt-get -qq update
           fi
           
-          sudo apt-get -qq install build-essential libssl-dev
+          sudo apt-get -qq install build-essential
           
           # Update to gcc 14 - see https://github.com/ggml-org/llama.cpp/issues/17403#issuecomment-3562034750
           sudo apt-get -qq install gcc-14
