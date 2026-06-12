@@ -24,6 +24,14 @@ jobs:
             runs-on: ubuntu-24.04-arm
 
           #
+          # Builds with oneMKL backend
+          #
+          - name: amd64+onemkl
+            runs-on: ubuntu-24.04
+            onemkl: true
+            additional-cmake-flags: "-D GGML_BLAS=ON -D GGML_BLAS_VENDOR=Intel10_64lp -D CMAKE_C_COMPILER=icx -D CMAKE_CXX_COMPILER=icpx"
+
+          #
           # Builds with CUDA backend
           #
           - name: amd64+cuda12.9
@@ -110,6 +118,14 @@ jobs:
           sudo apt-get -qq install g++-14
           sudo snap install cmake --classic
 
+          # Install oneMKL if required
+          if [ "${{ matrix.jobs.onemkl }}" = "true" ]; then
+            wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+            echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+            sudo apt-get -qq update
+            sudo apt-get -qq install intel-oneapi-toolkit pkg-config
+          fi
+
           # Install ROCm if required
           if [ "${{ matrix.jobs.rocm }}" = "true" ]; then
             wget https://repo.radeon.com/amdgpu-install/7.2/ubuntu/noble/amdgpu-install_7.2.70200-1_all.deb
@@ -148,6 +164,11 @@ jobs:
         run: |
           common_flags="-D GGML_NATIVE=OFF -D GGML_BACKEND_DL=ON  -D GGML_CPU_ALL_VARIANTS=ON"
           artifacts_flags="-D LLAMA_BUILD_TESTS=OFF -D LLAMA_BUILD_EXAMPLES=OFF -D LLAMA_BUILD_TOOLS=ON -D LLAMA_BUILD_SERVER=ON"
+          
+          # Source Intel oneAPI environment for oneMKL builds
+          if [ "${{ matrix.jobs.onemkl }}" = "true" ]; then
+            source /opt/intel/oneapi/setvars.sh
+          fi
           
           # Set gcc-14 as the compiler
           export CC=/usr/bin/gcc-14
@@ -224,6 +245,25 @@ jobs:
             find /usr -name "libcublas.so.*" -exec $copy \;
             find /usr -name "libcublasLt.so.*" -exec $copy \;
           fi
+          
+          # Copy Intel oneAPI runtime libraries if built with oneMKL
+          if [ "${{ matrix.jobs.onemkl }}" = "true" ]; then
+            copy="cp --no-dereference -v {} archive/lib/ "
+            find /opt/intel/oneapi/compiler -name "libimf.so" -exec $copy \;
+            find /opt/intel/oneapi/compiler -name "libintlc.so.*" -exec $copy \;
+            find /opt/intel/oneapi/compiler -name "libiomp5.so" -exec $copy \;
+            find /opt/intel/oneapi/compiler -name "libirng.so" -exec $copy \;
+            find /opt/intel/oneapi/compiler -name "libsvml.so" -exec $copy \;
+            find /opt/intel/oneapi/mkl -name "libmkl_core.so.*" -exec $copy \;
+            find /opt/intel/oneapi/mkl -name "libmkl_*lp64.so.*" -exec $copy \;
+            find /opt/intel/oneapi/mkl -name "libmkl_*thread.so.*" -exec $copy \;
+            find /opt/intel/oneapi/mkl -name "libmkl_avx*.so.*" -exec $copy \;
+            find /opt/intel/oneapi/mkl -name "libmkl_def.so.*" -exec $copy \;
+            find /opt/intel/oneapi/mkl -name "libmkl_mc3.so.*" -exec $copy \;
+            find /opt/intel/oneapi/mkl -name "libmkl_rt.so.*" -exec $copy \;
+            find /opt/intel/oneapi/mkl -name "libmkl_sequential.so.*" -exec $copy \;
+            find /opt/intel/oneapi/mkl -name "libmkl_vml_*.so.*" -exec $copy \;
+          fi
 
           # Workaround: llama.cpp expects ggml shared objects in the same directory as executables
           # See issue: https://github.com/ggml-org/llama.cpp/issues/17491
@@ -231,6 +271,7 @@ jobs:
           ln -s ../lib/libggml-cpu* ./
           ln -s ../lib/libggml-cuda* ./
           ln -s ../lib/libggml-hip* ./ # For ROCm
+          ln -s ../lib/libggml-blas* ./ # For BLAS oneMKL
           popd
 
           tar -C archive -zcvf $ARTIFACT .
