@@ -81,7 +81,7 @@ jobs:
           echo "value=$target_ref" >> "$GITHUB_OUTPUT"
 
       - name: Clone llama.cpp
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ggml-org/llama.cpp
           ref: ${{ steps.target_ref.outputs.value }}
