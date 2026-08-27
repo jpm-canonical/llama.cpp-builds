@@ -280,3 +280,66 @@ jobs:
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           files: ${{ env.ARTIFACT }}
+
+  build-snapdragon:
+    permissions:
+      contents: write # for uploading release assets
+
+    runs-on: ubuntu-24.04
+    env:
+      SOURCE_TAG: ${{ github.event.release.tag_name }}
+      ARTIFACT: llamacpp-arm64+hexagon.tar.gz
+
+    steps:
+      - name: Sanitize SOURCE_TAG and set target_ref output
+        id: target_ref
+        run: |
+          # Sanitize SOURCE_TAG by removing build metadata and a git. prefix.
+          target_ref="${SOURCE_TAG%%+*}"
+          target_ref="${target_ref#git.}"
+          if [ -z "$target_ref" ]; then
+            echo "target_ref is empty after sanitization: '$SOURCE_TAG'"
+            exit 1
+          fi
+          echo "value=$target_ref" >> "$GITHUB_OUTPUT"
+
+      - name: Clone llama.cpp
+        uses: actions/checkout@v6
+        with:
+          repository: ggml-org/llama.cpp
+          ref: ${{ steps.target_ref.outputs.value }}
+          fetch-depth: 0
+
+      - name: Build llama.cpp for Snapdragon Linux
+        run: |
+          docker run --rm \
+            --platform linux/amd64 \
+            --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/workspace" \
+            --workdir /workspace \
+            ghcr.io/snapdragon-toolchain/arm64-linux:v0.7 \
+            bash -euxo pipefail -c '
+              cp docs/backend/snapdragon/CMakeUserPresets.json .
+              cmake --preset arm64-linux-snapdragon-release -B build-snapdragon
+              cmake --build build-snapdragon -j "$(nproc)"
+              cmake --install build-snapdragon --prefix archive
+            '
+
+      - name: Package artifact
+        run: |
+          mkdir -p archive/licenses
+          cp -r licenses archive/
+          cp LICENSE archive/licenses/
+
+          # llama.cpp resolves backend libraries next to its executables.
+          pushd archive/bin
+          ln -s ../lib/libggml-cpu* .
+          ln -s ../lib/libggml-hexagon* .
+          popd
+
+          tar -C archive -zcvf "$ARTIFACT" .
+
+      - name: Upload artifact to release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          files: ${{ env.ARTIFACT }}
