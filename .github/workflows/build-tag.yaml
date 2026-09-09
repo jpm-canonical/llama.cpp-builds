@@ -312,6 +312,8 @@ jobs:
 
       - name: Build llama.cpp for Snapdragon Linux
         run: |
+          # Toolchain image is pinned for reproducible artifacts; bump
+          # deliberately and rebuild-compare when Qualcomm ships a new one.
           docker run --rm \
             --platform linux/amd64 \
             --user "$(id -u):$(id -g)" \
@@ -331,10 +333,23 @@ jobs:
           cp -r licenses archive/
           cp LICENSE archive/licenses/
 
+          # The Hexagon backend loads per-Hexagon-version DSP ELFs
+          # (libggml-htp-v68..v81.so) by name via ADSP_LIBRARY_PATH at session
+          # open. Without them FastRPC session setup fails with err 114 on
+          # targets like QCS8275 (v73). Fail the build rather than ship a
+          # broken artifact if the toolchain stopped emitting them.
+          if ! compgen -G "archive/lib/libggml-htp-v*.so" > /dev/null; then
+            echo "ERROR: no libggml-htp-v*.so DSP ELFs in archive/lib" >&2
+            echo "The Snapdragon toolchain preset no longer builds the HTP" >&2
+            echo "skels; investigate before releasing this artifact." >&2
+            exit 1
+          fi
+
           # llama.cpp resolves backend libraries next to its executables.
           pushd archive/bin
           ln -s ../lib/libggml-cpu* .
           ln -s ../lib/libggml-hexagon* .
+          ln -s ../lib/libggml-htp-v* .
           popd
 
           tar -C archive -zcvf "$ARTIFACT" .

@@ -26,40 +26,15 @@ This triggers a Github Workflow which builds and adds the artifacts one-by-one t
 
 The `llamacpp-arm64+hexagon.tar.gz` artifact is built for Linux on Snapdragon
 using Qualcomm's `arm64-linux:v0.7` toolchain image. It contains the CPU-side
-Hexagon backend and HTP skel libraries for the supported Hexagon versions.
+Hexagon backend and HTP skel libraries for the supported Hexagon versions
+(`libggml-htp-v*.so`, loaded by name via `ADSP_LIBRARY_PATH`). The build fails
+rather than shipping an artifact without them.
 
-On the target device, set the library paths before running llama.cpp:
-
-```shell
-export LD_LIBRARY_PATH="$PWD/lib"
-export ADSP_LIBRARY_PATH="$PWD/lib"
-export GGML_HEXAGON_DEVICES=HTP0
-./bin/llama-server --device HTP0 --n-gpu-layers 99 --model model.gguf
-```
-
-The target must provide the Qualcomm FastRPC userspace driver and CDSP device
-access. The artifact does not bundle proprietary host driver libraries.
-
-The current Hexagon backend supports these model weight types for HTP matmul
-offload: `Q4_0`, `Q4_1`, `Q8_0`, `IQ4_NL`, and `MXFP4`. K-quants such as
-`Q4_K_M` are not HTP-compatible in this backend and may fall back to the CPU.
-Model size and layer placement still need to be validated on the target
-device.
-
-Inference snaps should consume those platform dependencies through a trusted
-runtime provider rather than reading host `/usr` paths directly. The
-application-facing contract used by the Gemma HTP engine is:
-
-- `inference-npu`: a gadget-provided `custom-device` slot for the FastRPC CDSP
-  and DMA-heap nodes.
-- `inference-npu-runtime-qcom-htp`: a versioned content provider exposing the
-  matching `libcdsprpc.so` runtime and QCOM DSP configuration/files.
-
-For a QCS8300-class target, the runtime provider must expose the equivalent of
-`/usr/share/qcom/conf.d` and the matching CDSP shell files. The gadget remains
-responsible for firmware, udev permissions, and the device slot. These logical
-contracts are deliberately platform-neutral so other NPU implementations can
-reuse the same application snap interface.
+Platform-specific setup (host FastRPC userspace, DSP firmware and
+configuration, device permissions, weight-type compatibility) is documented
+next to the platform build config in `docs/backend/<platform>/`, checked into
+the same tree as the presets the build consumes. The artifact itself does not
+bundle proprietary host driver libraries.
 
 ## AMD64 architecture variants
 
