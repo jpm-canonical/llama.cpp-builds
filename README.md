@@ -22,6 +22,20 @@ This triggers a Github Workflow which builds and adds the artifacts one-by-one t
    LD_LIBRARY_PATH=$LD_LIBRARY_PATH:lib bin/llama-cli --help
    ```
 
+## Snapdragon Hexagon artifact
+
+The `llamacpp-arm64+hexagon.tar.gz` artifact is built for Linux on Snapdragon
+using Qualcomm's `arm64-linux:v0.7` toolchain image. It contains the CPU-side
+Hexagon backend and HTP skel libraries for the supported Hexagon versions
+(`libggml-htp-v*.so`, loaded by name via `ADSP_LIBRARY_PATH`). The build fails
+rather than shipping an artifact without them.
+
+Platform-specific setup (host FastRPC userspace, DSP firmware and
+configuration, device permissions, weight-type compatibility) is documented
+next to the platform build config in `docs/backend/<platform>/`, checked into
+the same tree as the presets the build consumes. The artifact itself does not
+bundle proprietary host driver libraries.
+
 ## AMD64 architecture variants
 
 Ubuntu supports AMD64 architecture variants as announced in [this](https://ubuntu.com/blog/optimising-ubuntu-performance-on-amd64-architecture) blog post and discussed in [this](https://discourse.ubuntu.com/t/introducing-architecture-variants-amd64v3-now-available-in-ubuntu-25-10/71312) forum post.
