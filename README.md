@@ -71,6 +71,7 @@ is only executed on hardware that reports it) and `libgomp1` as for the other
 artifacts.
 
 Reference performance on a SpacemiT K3 Pico-ITX (16 GB, Bianbu 4.0.8), Qwen3.5-2B
-Q4_1: ~68 tok/s prompt processing / ~13 tok/s generation on the A100 IME path
-(8 threads), vs ~8 / ~5 tok/s for a generic RVV build — and ~890 / ~130 tok/s on
-SmolLM2-135M. Flash attention (`-fa 1`) is supported and performance-neutral.
+Q4_1 (`llama-bench -t 8 -p 128 -n 64`, default flash attention `auto`): ~114 tok/s
+prompt processing / ~13.5 tok/s generation on the A100 IME path, vs ~8 / ~5 tok/s
+for a generic RVV build — and ~890 / ~130 tok/s on SmolLM2-135M. Flash attention
+is stable on this path; with `-fa off` prompt processing drops to ~70 tok/s.

@@ -186,10 +186,14 @@ jobs:
           fi
 
           # Install SpacemiT RISC-V cross toolchain if required.
-          # This is the clang-based cross toolchain from SpacemiT; it is needed
-          # because the stock Ubuntu riscv64 binutils cannot assemble the
-          # IME (vmadot family) matrix-extension mnemonics, and cmake would
-          # otherwise silently produce a generic RVV-only build.
+          # This is SpacemiT's GCC 15.2-based cross toolchain, used through
+          # llama.cpp's cmake/riscv64-spacemit-linux-gnu-gcc.cmake. It is needed
+          # because the stock Ubuntu riscv64 binutils cannot assemble the IME
+          # (vmadot family) matrix-extension mnemonics. With a stock toolchain
+          # the IME probes fail without a clear configure-time diagnostic and
+          # the build only fails later (ggml-org/llama.cpp#32412). The
+          # toolchain file's -fno-tree-vectorize flags also matter for prefill
+          # performance.
           if [ "${{ matrix.jobs.spacemit }}" = "true" ]; then
             wget -q https://github.com/spacemit-com/toolchain/releases/download/v1.2.4/spacemit-toolchain-linux-glibc-x86_64-v1.2.4.tar.xz
             tar -xJf spacemit-toolchain-linux-glibc-x86_64-v1.2.4.tar.xz -C "$HOME"
@@ -253,10 +257,11 @@ jobs:
         if: matrix.jobs.spacemit == true
         run: |
           set -e
-          # Guard against silent degradation: llama.cpp's FindSMTIME.cmake probes
-          # the toolchain for IME (vmadot family) instruction support and quietly
-          # omits the IME kernels when the probes fail, which would produce a
-          # generic RVV-only artifact mislabeled as "+spacemit".
+          # Post-build guard for the "+spacemit" label: llama.cpp's
+          # FindSMTIME.cmake probes the toolchain for IME (vmadot family)
+          # support without failing configure. Current llama.cpp then stops at
+          # an #error in ime.cpp, but this step also catches future source or
+          # toolchain changes that would leave the IME kernels out.
           echo "CMake IME capability probes:"
           grep "SPACEMIT_RISCV_COMPILER_SUPPORT" build/CMakeCache.txt || true
           probe_count=$(grep -c "SPACEMIT_RISCV_COMPILER_SUPPORT.*:INTERNAL=1" build/CMakeCache.txt || true)
