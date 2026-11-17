@@ -75,7 +75,22 @@ jobs:
                                       -DGGML_STATIC=OFF
                                       -DCMAKE_SYSTEM_NAME=Linux
                                       -DCMAKE_SYSTEM_PROCESSOR=x86_64'
-          
+
+          #
+          # Cross-build for RISC-V SpacemiT SoCs (K1/X60, K3/X100+A100).
+          #
+          # A single artifact with runtime hardware dispatch: when running on a
+          # SpacemiT board with the vendor BSP kernel it automatically engages the
+          # A100 "AI core" cluster, the IME (vmadot) matrix instructions and TCM;
+          # on any other riscv64 system it falls back to plain RVV 1.0 kernels.
+          # Requires an RVA23-class CPU (rv64gcv + zba/zfh/zvfh/zicbop/zihintpause)
+          # at runtime. Mirrors the recipe documented in llama.cpp's
+          # docs/build-riscv64-spacemit.md.
+          #
+          - name: riscv64+spacemit
+            runs-on: ubuntu-24.04
+            spacemit: true
+            additional-cmake-flags: "-D GGML_CPU_RISCV64_SPACEMIT=ON -D GGML_CPU_REPACK=OFF -D LLAMA_OPENSSL=OFF -D GGML_RVV=ON -D GGML_RV_ZVFH=ON -D GGML_RV_ZFH=ON -D GGML_RV_ZICBOP=ON -D GGML_RV_ZIHINTPAUSE=ON -D GGML_RV_ZBA=ON -D CMAKE_TOOLCHAIN_FILE=cmake/riscv64-spacemit-linux-gnu-gcc.cmake"
     runs-on: ${{ matrix.jobs.runs-on }}
     steps:
       - name: Sanitize SOURCE_TAG and set target_ref output
@@ -163,17 +178,41 @@ jobs:
                 [ -e "$archive" ] || continue
 
                 echo "Processing: $archive"
-                
+
                 # Run the extraction command
                 sudo tar -xzf "$archive" -C "$HOME/opt/rocm" --strip-components=1
                 rm -f "$archive"
             done
           fi
 
+          # Install SpacemiT RISC-V cross toolchain if required.
+          # This is SpacemiT's GCC 15.2-based cross toolchain, used through
+          # llama.cpp's cmake/riscv64-spacemit-linux-gnu-gcc.cmake. It is needed
+          # because the stock Ubuntu riscv64 binutils cannot assemble the IME
+          # (vmadot family) matrix-extension mnemonics. With a stock toolchain
+          # the IME probes fail without a clear configure-time diagnostic and
+          # the build only fails later (ggml-org/llama.cpp#32412). The
+          # toolchain file's -fno-tree-vectorize flags also matter for prefill
+          # performance.
+          if [ "${{ matrix.jobs.spacemit }}" = "true" ]; then
+            wget -q https://github.com/spacemit-com/toolchain/releases/download/v1.2.4/spacemit-toolchain-linux-glibc-x86_64-v1.2.4.tar.xz
+            tar -xJf spacemit-toolchain-linux-glibc-x86_64-v1.2.4.tar.xz -C "$HOME"
+            echo "RISCV_ROOT_PATH=$HOME/spacemit-toolchain-linux-glibc-x86_64-v1.2.4" >> "$GITHUB_ENV"
+          fi
+
       - name: Build
         run: |
           common_flags="-D GGML_NATIVE=OFF -D GGML_BACKEND_DL=ON  -D GGML_CPU_ALL_VARIANTS=ON"
           artifacts_flags="-D LLAMA_BUILD_TESTS=OFF -D LLAMA_BUILD_EXAMPLES=OFF -D LLAMA_BUILD_TOOLS=ON -D LLAMA_BUILD_SERVER=ON"
+
+          # The SpacemiT IME backend must be compiled as a single, non-variant CPU
+          # backend: with GGML_CPU_ALL_VARIANTS the ggml-cpu CMake takes its
+          # multi-variant path, which does not add the *_xsmtvdotii march flag and
+          # would omit the IME kernels. There is only one backend in this artifact,
+          # so GGML_BACKEND_DL is unnecessary too.
+          if [ "${{ matrix.jobs.spacemit }}" = "true" ]; then
+            common_flags="-D GGML_NATIVE=OFF"
+          fi
           
           # Source Intel oneAPI environment for oneMKL builds
           if [ "${{ matrix.jobs.onemkl }}" = "true" ]; then
@@ -213,6 +252,34 @@ jobs:
             cmake -B build $common_flags $artifacts_flags ${{ matrix.jobs.additional-cmake-flags }}
             cmake --build build --config Release -j $(nproc)
           fi
+
+      - name: Verify IME support (spacemit builds)
+        if: matrix.jobs.spacemit == true
+        run: |
+          set -e
+          # Post-build guard for the "+spacemit" label: llama.cpp's
+          # FindSMTIME.cmake probes the toolchain for IME (vmadot family)
+          # support without failing configure. Current llama.cpp then stops at
+          # an #error in ime.cpp, but this step also catches future source or
+          # toolchain changes that would leave the IME kernels out.
+          echo "CMake IME capability probes:"
+          grep "SPACEMIT_RISCV_COMPILER_SUPPORT" build/CMakeCache.txt || true
+          probe_count=$(grep -c "SPACEMIT_RISCV_COMPILER_SUPPORT.*:INTERNAL=1" build/CMakeCache.txt || true)
+          test "$probe_count" -ge 5 \
+            || { echo "::error::Only $probe_count IME compiler probes passed - toolchain lacks IME support?"; exit 1; }
+          grep -q "SPACEMIT_RISCV_COMPILER_SUPPORT_VMADOT_S8:INTERNAL=1" build/CMakeCache.txt \
+            || { echo "::error::VMADOT_S8 probe failed - IME2 kernels will be missing"; exit 1; }
+          grep -q "SPACEMIT_RISCV_COMPILER_SUPPORT_VPACK:INTERNAL=1" build/CMakeCache.txt \
+            || { echo "::error::VPACK probe failed - IME2 kernels will be missing"; exit 1; }
+          # The runtime-detector strings and backend symbols must be present in the
+          # built library.
+          strings build/bin/libggml-cpu.so* | grep -q "CPU_RISCV64_SPACEMIT" \
+            || { echo "::error::SpacemiT runtime detector missing from libggml-cpu"; exit 1; }
+          nm build/bin/libggml-cpu.so* | grep -q "ggml_backend_cpu_riscv64_spacemit" \
+            || { echo "::error::SpacemiT backend symbols missing from libggml-cpu"; exit 1; }
+          file build/bin/llama-server | grep -q "UCB RISC-V" \
+            || { echo "::error::llama-server is not a RISC-V binary"; exit 1; }
+          echo "IME kernels verified in build."
 
       - name: Pack artifacts
         run: |
@@ -277,11 +344,14 @@ jobs:
 
           # Workaround: llama.cpp expects ggml shared objects in the same directory as executables
           # See issue: https://github.com/ggml-org/llama.cpp/issues/17491
+          # nullglob makes this a no-op for builds that do not ship the given
+          # backend (e.g. riscv64+spacemit has no separate cuda/hip/blas libs).
           pushd archive/bin/
-          ln -s ../lib/libggml-cpu* ./
-          ln -s ../lib/libggml-cuda* ./
-          ln -s ../lib/libggml-hip* ./ # For ROCm
-          ln -s ../lib/libggml-blas* ./ # For BLAS oneMKL
+          shopt -s nullglob
+          for lib in ../lib/libggml-cpu* ../lib/libggml-cuda* ../lib/libggml-hip* ../lib/libggml-blas*; do
+            ln -s "$lib" ./
+          done
+          shopt -u nullglob
           popd
 
           tar -C archive -zcvf $ARTIFACT .

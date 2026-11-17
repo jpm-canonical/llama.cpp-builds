@@ -46,3 +46,32 @@ Available build flags for CPU builds of llama.cpp is defined [here](https://gith
 | GGML_AMX_TILE      | OFF     | OFF     | OFF     | OFF     |
 | GGML_AMX_INT8      | OFF     | OFF     | OFF     | OFF     |
 | GGML_AMX_BF16      | OFF     | OFF     | OFF     | OFF     |
+
+## RISC-V (riscv64+spacemit)
+
+The `llamacpp-riscv64+spacemit.tar.gz` artifact is a **cross-build for RISC-V
+SpacemiT SoCs** (Key Stone K1 / X60 and K3 / X100+A100), built with
+`GGML_CPU_RISCV64_SPACEMIT=ON` following llama.cpp's
+[docs/build-riscv64-spacemit.md](https://github.com/ggml-org/llama.cpp/blob/master/docs/build-riscv64-spacemit.md),
+using the [SpacemiT cross toolchain](https://github.com/spacemit-com/toolchain)
+(the stock Ubuntu riscv64 binutils cannot assemble the IME instructions).
+
+It is a **single artifact with runtime hardware dispatch**:
+
+- On SpacemiT boards running the vendor BSP kernel (Bianbu), the binaries detect
+  the A100 "AI core" cluster, the IME `vmadot` matrix-extension instructions and
+  TCM automatically, and engage them with no configuration (watch for
+  `CPU_RISCV64_SPACEMIT:` lines in the log).
+- On any other riscv64 system — including SpacemiT boards running mainline
+  kernels — the same binary falls back to the portable RVV 1.0 kernels.
+
+Runtime requirements: an **RVA23-class CPU** (the binary is built for
+`rv64gcv_zfh_zvfh_zicbop_zihintpause_zba` plus the SpacemiT IME extension, which
+is only executed on hardware that reports it) and `libgomp1` as for the other
+artifacts.
+
+Reference performance on a SpacemiT K3 Pico-ITX (16 GB, Bianbu 4.0.8), Qwen3.5-2B
+Q4_1 (`llama-bench -t 8 -p 128 -n 64`, default flash attention `auto`): ~114 tok/s
+prompt processing / ~13.5 tok/s generation on the A100 IME path, vs ~8 / ~5 tok/s
+for a generic RVV build — and ~890 / ~130 tok/s on SmolLM2-135M. Flash attention
+is stable on this path; with `-fa off` prompt processing drops to ~70 tok/s.
